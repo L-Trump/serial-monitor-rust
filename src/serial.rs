@@ -108,7 +108,11 @@ pub fn serial_thread(
         let device = get_device(&devices_lock, &device_lock);
 
         let mut port = match serialport::new(&device.name, device.baud_rate)
-            .timeout(Duration::from_millis(100))
+            .data_bits(device.data_bits)
+            .stop_bits(device.stop_bits)
+            .parity(device.parity)
+            .flow_control(device.flow_control)
+            .timeout(device.timeout)
             .open()
         {
             Ok(p) => {

@@ -1,4 +1,4 @@
-use csv::Writer;
+use csv::{Writer, WriterBuilder};
 use serde::{Deserialize, Serialize};
 
 use crate::data::DataContainer;
@@ -66,7 +66,14 @@ pub fn record_thread(
         if record_options.enable {
             if wtr.is_none() {
                 fs::remove_file(&record_options.record_path).unwrap_or_default();
-                wtr = match Writer::from_path(&record_options.record_path) {
+                wtr = match WriterBuilder::new()
+                    .terminator(if record_options.windows_style_line_endings {
+                        csv::Terminator::CRLF
+                    } else {
+                        csv::Terminator::Any(b'\n')
+                    })
+                    .from_path(&record_options.record_path)
+                {
                     Ok(w) => Some(w),
                     Err(e) => {
                         print_to_console(
@@ -77,14 +84,16 @@ pub fn record_thread(
                         continue;
                     }
                 };
-                if let Some(w) = &mut wtr {
-                    let headers = get_headers(&data_lock, &record_options);
-                    if let Err(e) = w.write_record(&headers) {
-                        print_to_console(
-                            &print_lock,
-                            Print::Error(format!("Error while create headers: {:?}", e)),
-                        );
-                    };
+                if record_options.write_header_line {
+                    if let Some(w) = &mut wtr {
+                        let headers = get_headers(&data_lock, &record_options);
+                        if let Err(e) = w.write_record(&headers) {
+                            print_to_console(
+                                &print_lock,
+                                Print::Error(format!("Error while create headers: {:?}", e)),
+                            );
+                        };
+                    }
                 }
             }
             let datas_vec = match record_data_rx.try_recv() {

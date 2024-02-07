@@ -271,7 +271,7 @@ pub struct MyApp {
     active_tab: Option<GuiTabs>,
 }
 
-#[allow(clippy::too_many_arguments)]
+// #[allow(clippy::too_many_arguments)]
 impl MyApp {
     pub fn new(
         print_lock: Arc<RwLock<Vec<Print>>>,

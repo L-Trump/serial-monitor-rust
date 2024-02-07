@@ -17,7 +17,7 @@ egui-phosphor = { git = "https://github.com/hacknus/egui-phosphor" }
 hex = "0.4"
 image = { version = "0.25.0", default-features = false, features = ["png"] }
 itertools-num = "0.1"
-keepawake = { git = "https://github.com/segevfiner/keepawake-rs" }
+keepawake = "0.4.5"
 preferences = { git = "https://github.com/andybarron/preferences-rs" }
 rand = "0.8.5"
 realfft = "3.3.0"
@@ -25,10 +25,8 @@ regex = "1"
 rfd = "0.14.0"
 safe-transmute = "0.11.2"
 serde = { version = "1.0", features = ["derive"] }
-serialport = { git = "https://github.com/serialport/serialport-rs", features = [
-  "serde",
-] }
 font-kit = { version = "0.12.0", features = ["freetype"] }
+serialport = { version = "4.3.0", features = ["serde"] }
 
 [package.metadata.bundle]
 name = "Serial Monitor"

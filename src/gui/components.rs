@@ -16,7 +16,6 @@ impl MyApp {
             self.device.clear();
         }
 
-        ui.heading("串口设置");
         ui.add_space(5.0);
         ui.horizontal(|ui| {
             ui.label("Device");
@@ -269,7 +268,6 @@ impl MyApp {
     }
 
     pub fn plot_settings_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        ui.heading("画图设置");
         ui.add_space(5.0);
         egui::Grid::new("upper")
             .num_columns(2)
@@ -443,8 +441,7 @@ impl MyApp {
                 let signal_plot = Plot::new(format!("data-{graph_idx}"))
                     .height(plot_height)
                     .width(width)
-                    .auto_bounds_x()
-                    .auto_bounds_y()
+                    .auto_bounds([true, true].into())
                     .legend(Legend::default())
                     .x_grid_spacer(log_grid_spacer(10))
                     .y_grid_spacer(log_grid_spacer(10));
@@ -882,6 +879,41 @@ impl MyApp {
                         .record_path
                         .set_extension("csv");
                 }
+            }
+        });
+        ui.add_space(LINESPREAD);
+        ui.horizontal(|ui| {
+            if ui
+                .selectable_label(
+                    self.gui_conf.record_options.insert_timestamp,
+                    "Insert timestamp",
+                )
+                .clicked()
+            {
+                self.gui_conf.record_options.insert_timestamp =
+                    !self.gui_conf.record_options.insert_timestamp;
+            };
+            ui.add_space(SPACE);
+            if ui
+                .selectable_label(
+                    self.gui_conf.record_options.write_header_line,
+                    "Write header line",
+                )
+                .clicked()
+            {
+                self.gui_conf.record_options.write_header_line =
+                    !self.gui_conf.record_options.write_header_line
+            }
+            ui.add_space(SPACE);
+            if ui
+                .selectable_label(
+                    self.gui_conf.record_options.windows_style_line_endings,
+                    "CRLF line ending",
+                )
+                .clicked()
+            {
+                self.gui_conf.record_options.windows_style_line_endings =
+                    !self.gui_conf.record_options.windows_style_line_endings
             }
         });
     }
