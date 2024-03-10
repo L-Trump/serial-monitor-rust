@@ -1,6 +1,15 @@
-use super::*;
-use eframe::egui::{self, Button, TextEdit, TextStyle};
+use std::ops::RangeInclusive;
+
+use eframe::egui::{self, global_dark_light_mode_buttons, Button, TextEdit, TextStyle, Visuals};
+use egui_plot::{log_grid_spacer, Legend, Line, Plot, PlotPoint, PlotPoints};
 use rfd::MessageDialog;
+use serialport::{DataBits, FlowControl, Parity, StopBits};
+
+use crate::serial::clear_serial_settings;
+use crate::toggle::toggle;
+use crate::FileOptions;
+
+use super::*;
 
 impl MyApp {
     pub fn serial_settings_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {

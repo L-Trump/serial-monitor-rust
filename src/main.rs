@@ -1,4 +1,3 @@
-#![feature(vec_into_raw_parts)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 // hide console window on Windows in release
 extern crate core;
@@ -31,7 +30,6 @@ mod io;
 mod record;
 mod serial;
 mod toggle;
-mod utils;
 
 const APP_INFO: AppInfo = AppInfo {
     name: "Serial Monitor",

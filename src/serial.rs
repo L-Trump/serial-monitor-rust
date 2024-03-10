@@ -65,7 +65,7 @@ impl Default for Device {
             flow_control: FlowControl::None,
             parity: Parity::None,
             stop_bits: StopBits::One,
-            timeout: Duration::from_millis(0),
+            timeout: Duration::from_millis(10),
         }
     }
 }
@@ -93,6 +93,15 @@ pub fn serial_thread(
     print_lock: Arc<RwLock<Vec<Print>>>,
     connected_lock: Arc<RwLock<bool>>,
 ) {
+    let devices_update_lock = devices_lock.clone();
+    let _devices_update_handler = std::thread::spawn(move || loop {
+        let devices = available_devices();
+        if let Ok(mut write_guard) = devices_update_lock.write() {
+            *write_guard = devices;
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    });
+
     loop {
         let _not_awake = keepawake::Builder::default()
             .display(false)
@@ -150,12 +159,7 @@ pub fn serial_thread(
             .create();
 
         'connected_loop: loop {
-            let devices = available_devices();
-            if let Ok(mut write_guard) = devices_lock.write() {
-                *write_guard = devices.clone();
-            }
-
-            if let Some(message) = disconnected(&device, &devices, &device_lock) {
+            if let Some(message) = disconnected(&device, &devices_lock, &device_lock) {
                 print_to_console(&print_lock, message);
                 break 'connected_loop;
             }
@@ -198,7 +202,7 @@ fn get_device(
 
 fn disconnected(
     device: &Device,
-    devices: &[String],
+    devices_lock: &Arc<RwLock<Vec<String>>>,
     device_lock: &Arc<RwLock<Device>>,
 ) -> Option<Print> {
     // disconnection by button press
@@ -212,14 +216,16 @@ fn disconnected(
     }
 
     // other types of disconnection (e.g. unplugging, power down)
-    if !devices.contains(&device.name) {
-        if let Ok(mut write_guard) = device_lock.write() {
-            write_guard.name.clear();
+    if let Ok(devices) = devices_lock.read() {
+        if !devices.contains(&device.name) {
+            if let Ok(mut write_guard) = device_lock.write() {
+                write_guard.name.clear();
+            }
+            return Some(Print::Error(format!(
+                "Device has disconnected from serial port: {}",
+                device.name
+            )));
         }
-        return Some(Print::Error(format!(
-            "Device has disconnected from serial port: {}",
-            device.name
-        )));
     }
 
     None

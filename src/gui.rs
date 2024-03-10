@@ -1,25 +1,18 @@
 use core::f32;
-use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use eframe::egui::{
-    global_dark_light_mode_buttons, Align2, FontFamily, FontId, KeyboardShortcut, Pos2, Sense,
-    SidePanel, Vec2, Visuals,
-};
+use eframe::egui::{Align2, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, SidePanel, Vec2};
 use eframe::{egui, Storage};
-use egui_plot::{log_grid_spacer, GridMark, Legend, Line, Plot, PlotPoint, PlotPoints};
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
-use serialport::{DataBits, FlowControl, Parity, StopBits};
 
 use crate::data::{DataContainer, SerialDirection};
 use crate::record::RecordOptions;
-use crate::serial::{clear_serial_settings, save_serial_settings, Device, SerialDevices};
-use crate::toggle::toggle;
-use crate::{FileOptions, GuiEvent};
+use crate::serial::{save_serial_settings, Device, SerialDevices};
+use crate::GuiEvent;
 use crate::{APP_INFO, PREFS_KEY};
 
 mod components;
