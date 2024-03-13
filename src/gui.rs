@@ -21,6 +21,7 @@ const MAX_FPS: f64 = 60.0;
 
 const DEFAULT_FONT_ID: FontId = FontId::new(14.0, FontFamily::Monospace);
 pub const RIGHT_PANEL_WIDTH: f32 = 350.0;
+pub const LEFT_PANEL_WIDTH: f32 = 140.0;
 const BAUD_RATES: &[u32] = &[
     300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 74880, 115200, 230400, 128000, 460800,
     576000, 921600,
@@ -189,6 +190,14 @@ pub enum GuiTabs {
     Commands,
     PlotOptions,
     Record,
+    ImpedacneAnalysis,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum GuiWindows {
+    RawUART,
+    ImpedanceAnalysis,
+    QCMDynamic,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -268,7 +277,9 @@ pub struct MyApp {
     do_not_show_clear_warning: bool,
     need_initialize: bool,
     right_panel_expanded: bool,
+    left_panel_expanded: bool,
     active_tab: Option<GuiTabs>,
+    active_window: GuiWindows,
 }
 
 // #[allow(clippy::too_many_arguments)]
@@ -324,6 +335,8 @@ impl MyApp {
             right_panel_expanded: true,
             active_tab: Some(GuiTabs::PlotOptions),
             record_options_tx,
+            active_window: GuiWindows::RawUART,
+            left_panel_expanded: true,
         }
     }
 
@@ -409,13 +422,26 @@ impl MyApp {
                         (self.plot_serial_display_ratio + resize_y / panel_height).clamp(0.1, 0.9);
 
                     ui.horizontal(|ui| {
-                        if ui
-                            .selectable_value(
-                                &mut self.active_tab,
-                                Some(GuiTabs::PlotOptions),
-                                "Plot Options",
-                            )
-                            .double_clicked()
+                        if self.active_window == GuiWindows::ImpedanceAnalysis
+                            && ui
+                                .selectable_value(
+                                    &mut self.active_tab,
+                                    Some(GuiTabs::ImpedacneAnalysis),
+                                    "Options",
+                                )
+                                .double_clicked()
+                        {
+                            self.active_tab = None
+                        };
+
+                        if self.active_window == GuiWindows::RawUART
+                            && ui
+                                .selectable_value(
+                                    &mut self.active_tab,
+                                    Some(GuiTabs::PlotOptions),
+                                    "Plot Options",
+                                )
+                                .double_clicked()
                         {
                             self.active_tab = None
                         };
@@ -431,20 +457,26 @@ impl MyApp {
                             self.active_tab = None
                         };
 
-                        if ui
-                            .selectable_value(
-                                &mut self.active_tab,
-                                Some(GuiTabs::Commands),
-                                "Commands",
-                            )
-                            .double_clicked()
+                        if self.active_window == GuiWindows::RawUART
+                            && ui
+                                .selectable_value(
+                                    &mut self.active_tab,
+                                    Some(GuiTabs::Commands),
+                                    "Commands",
+                                )
+                                .double_clicked()
                         {
                             self.active_tab = None
                         };
 
-                        if ui
-                            .selectable_value(&mut self.active_tab, Some(GuiTabs::Record), "Record")
-                            .double_clicked()
+                        if self.active_window == GuiWindows::RawUART
+                            && ui
+                                .selectable_value(
+                                    &mut self.active_tab,
+                                    Some(GuiTabs::Record),
+                                    "Record",
+                                )
+                                .double_clicked()
                         {
                             self.active_tab = None
                         };
@@ -487,6 +519,19 @@ impl MyApp {
                                 GuiTabs::Record => {
                                     self.record_gui(ui);
                                 }
+                                GuiTabs::ImpedacneAnalysis => {
+                                    let mut s = String::default();
+                                    ui.add_space(10.0);
+                                    ui.label("IQ Scan Settings");
+                                    ui.horizontal(|ui| {
+                                        ui.vertical(|ui| {
+                                            ui.heading("Auto Configure");
+                                            ui.label("base freq");
+                                            ui.text_edit_singleline(&mut s);
+                                            ui.button("Auto").clicked();
+                                        });
+                                    });
+                                }
                             }
                         }
                         None => (),
@@ -498,6 +543,75 @@ impl MyApp {
     }
 
     fn draw_side_panel(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::SidePanel::show_animated_between(
+            ctx,
+            self.left_panel_expanded,
+            SidePanel::left("left panel collapsed")
+                .min_width(0.0)
+                .resizable(false),
+            SidePanel::left("left panel expanded").exact_width(LEFT_PANEL_WIDTH),
+            |ui, how_expanded| {
+                if how_expanded == 0.0 {
+                    ui.add_space(10.0);
+                    if ui
+                        .button(egui::RichText::new(
+                            egui_phosphor::regular::LIST.to_string(),
+                        ))
+                        .clicked()
+                    {
+                        self.left_panel_expanded = true;
+                    }
+                } else {
+                    ui.add_space(10.0);
+                    if ui
+                        .heading("QCM System")
+                        .interact(egui::Sense::click())
+                        .clicked()
+                        || ui
+                            .heading("by SWJTU")
+                            .interact(egui::Sense::click())
+                            .clicked()
+                    {
+                        self.left_panel_expanded = false;
+                    };
+
+                    ui.separator();
+                    ui.vertical_centered_justified(|ui| {
+                        if ui
+                            .selectable_value(
+                                &mut self.active_window,
+                                GuiWindows::RawUART,
+                                "Raw UART Plot",
+                            )
+                            .clicked()
+                        {
+                            self.active_tab = Some(GuiTabs::PlotOptions);
+                        };
+                        if ui
+                            .selectable_value(
+                                &mut self.active_window,
+                                GuiWindows::ImpedanceAnalysis,
+                                "Impedance Analyzer",
+                            )
+                            .clicked()
+                        {
+                            self.active_tab = Some(GuiTabs::ImpedacneAnalysis);
+                        };
+                        if ui
+                            .selectable_value(
+                                &mut self.active_window,
+                                GuiWindows::QCMDynamic,
+                                "QCM Dynamic Analyzer",
+                            )
+                            .clicked()
+                        {
+                            self.active_tab = Some(GuiTabs::PlotOptions);
+                        };
+                    });
+                }
+            },
+        );
+
         egui::SidePanel::show_animated_between(
             ctx,
             self.right_panel_expanded,
