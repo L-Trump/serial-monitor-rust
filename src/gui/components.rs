@@ -1019,4 +1019,34 @@ impl MyApp {
                 };
             });
     }
+
+    pub fn impedance_ui(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal_centered(|ui| {
+            ui.vertical(|ui| {
+                ui.heading("Auto Configure");
+                ui.label("Base Frequency: ");
+                ui.add(
+                    egui::DragValue::new(&mut self.impedance_options.base_frequency)
+                        .update_while_editing(false),
+                );
+                if ui.button("Auto").clicked() {
+                    let send_cmd = "auto_conf ".to_string()
+                        + &self.impedance_options.start_frequency.to_string()
+                        + "\r\n\r\n";
+                    if let Err(err) = self.send_tx.send(send_cmd) {
+                        print_to_console(
+                            &self.print_lock,
+                            Print::Error(format!("send_tx thread send failed: {:?}", err)),
+                        );
+                    }
+                };
+            });
+            ui.add_space(5.0);
+            ui.separator();
+            ui.add_space(5.0);
+            ui.horizontal(|ui| {
+                ui.heading("Scan settings");
+            })
+        });
+    }
 }

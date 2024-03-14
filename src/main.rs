@@ -54,6 +54,7 @@ fn split(payload: &str) -> Vec<f64> {
         .map(|x| x.trim())
         .flat_map(|x| x.parse::<f64>())
         .collect()
+
 }
 
 fn main_thread(
@@ -113,6 +114,13 @@ fn main_thread(
 
         if let Ok(packet) = raw_data_rx.recv_timeout(Duration::from_millis(1)) {
             if !packet.payload.is_empty() {
+                if packet.payload.starts_with("###") {
+                    print_to_console(
+                        &print_lock,
+                        Print::Debug(packet.payload.replace("###", "")),
+                    );
+                    continue;
+                }
                 if let Ok(write_guard) = data_lock.write() {
                     let mut data = write_guard;
                     if raw_traffic_options.enable {

@@ -5,6 +5,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use eframe::egui::{Align2, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, SidePanel, Vec2};
+use eframe::emath::One;
 use eframe::{egui, Storage};
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
@@ -249,6 +250,31 @@ impl Default for PlotOptions {
     }
 }
 
+#[derive(Clone)]
+pub struct ImpedanceOptions {
+    start_frequency: f32,
+    stop_frequency: f32,
+    frequency_step: f32,
+    base_frequency: f32,
+    holdtime: f32,
+    i_or_q: String,
+}
+
+impl Default for ImpedanceOptions {
+    fn default() -> Self {
+        Self {
+            start_frequency: 9998000.0,
+            stop_frequency: 10000000.0,
+            frequency_step: 5.0,
+            base_frequency: 9999000.0,
+            holdtime: 1.0,
+            i_or_q: "i".to_owned(),
+        }
+    }
+}
+
+
+
 pub struct MyApp {
     connected_to_device: bool,
     command: String,
@@ -280,6 +306,7 @@ pub struct MyApp {
     left_panel_expanded: bool,
     active_tab: Option<GuiTabs>,
     active_window: GuiWindows,
+    impedance_options: ImpedanceOptions,
 }
 
 // #[allow(clippy::too_many_arguments)]
@@ -337,6 +364,7 @@ impl MyApp {
             record_options_tx,
             active_window: GuiWindows::RawUART,
             left_panel_expanded: true,
+            impedance_options: ImpedanceOptions::default(),
         }
     }
 
@@ -427,7 +455,7 @@ impl MyApp {
                                 .selectable_value(
                                     &mut self.active_tab,
                                     Some(GuiTabs::ImpedacneAnalysis),
-                                    "Options",
+                                    "Impedance Options",
                                 )
                                 .double_clicked()
                         {
@@ -520,17 +548,7 @@ impl MyApp {
                                     self.record_gui(ui);
                                 }
                                 GuiTabs::ImpedacneAnalysis => {
-                                    let mut s = String::default();
-                                    ui.add_space(10.0);
-                                    ui.label("IQ Scan Settings");
-                                    ui.horizontal(|ui| {
-                                        ui.vertical(|ui| {
-                                            ui.heading("Auto Configure");
-                                            ui.label("base freq");
-                                            ui.text_edit_singleline(&mut s);
-                                            ui.button("Auto").clicked();
-                                        });
-                                    });
+                                    self.impedance_ui(ui);
                                 }
                             }
                         }
@@ -605,7 +623,7 @@ impl MyApp {
                             )
                             .clicked()
                         {
-                            self.active_tab = Some(GuiTabs::PlotOptions);
+                            self.active_tab = Some(GuiTabs::RawTraffic);
                         };
                     });
                 }
