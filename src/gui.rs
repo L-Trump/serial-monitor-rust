@@ -252,23 +252,27 @@ impl Default for PlotOptions {
 
 #[derive(Clone)]
 pub struct ImpedanceOptions {
-    start_frequency: f32,
-    stop_frequency: f32,
-    frequency_step: f32,
-    base_frequency: f32,
-    holdtime: f32,
-    i_or_q: String,
+    start_frequency: String,
+    stop_frequency: String,
+    frequency_step: String,
+    bias: String,
+    phase: String,
+    base_frequency: String,
+    holdtime: String,
+    i_q_select: String,
 }
 
 impl Default for ImpedanceOptions {
     fn default() -> Self {
         Self {
-            start_frequency: 9998000.0,
-            stop_frequency: 10000000.0,
-            frequency_step: 5.0,
-            base_frequency: 9999000.0,
-            holdtime: 1.0,
-            i_or_q: "i".to_owned(),
+            start_frequency: "9998000.0".to_owned(),
+            stop_frequency: "10000000.0".to_owned(),
+            frequency_step: "5.0".to_owned(),
+            bias: "".to_owned(),
+            phase: "".to_owned(),
+            base_frequency: "9999000.0".to_owned(),
+            holdtime: "1.0".to_owned(),
+            i_q_select: "i".to_string(),
         }
     }
 }

@@ -1023,29 +1023,107 @@ impl MyApp {
     pub fn impedance_ui(&mut self, ui: &mut egui::Ui) {
         ui.horizontal_centered(|ui| {
             ui.vertical(|ui| {
-                ui.heading("Auto Configure");
-                ui.label("Base Frequency: ");
-                ui.add(
-                    egui::DragValue::new(&mut self.impedance_options.base_frequency)
-                        .update_while_editing(false),
-                );
-                if ui.button("Auto").clicked() {
-                    let send_cmd = "auto_conf ".to_string()
-                        + &self.impedance_options.start_frequency.to_string()
-                        + "\r\n\r\n";
+                ui.heading("General settings");
+                ui.add_space(5.0);
+                ui.horizontal(|ui|{
+                    ui.add(
+                        TextEdit::singleline(&mut "Base Frequency:".to_owned())
+                            .frame(false)
+                            .desired_width(90.0)
+                            .clip_text(false),
+                    );
+                    ui.add(
+                        TextEdit::singleline(&mut self.impedance_options.base_frequency.to_string())
+                            .code_editor()
+                            .lock_focus(false)
+                            .clip_text(true)
+                            .desired_width(80.0),
+                    );
+                });
+                ui.add_space(3.0);
+                if ui.add_sized([193.0,20.0], Button::new("Auto")).clicked() {
+                    let send_cmd="auto_conf ".to_string() + &self.impedance_options.base_frequency.to_string() + "\r\n\r\n";
+                        if let Err(err) = self.send_tx.send(send_cmd) {
+                            print_to_console(
+                                &self.print_lock,
+                                Print::Error(format!(
+                                    "send_tx thread send failed: {:?}",
+                                    err
+                                )),
+                            );
+                        }
+                }
+                ui.add_space(5.0);
+                ui.horizontal(|ui|{
+                    ui.add(
+                        TextEdit::singleline(&mut "Bias:".to_owned())
+                            .frame(false)
+                            .desired_width(35.0)
+                            .clip_text(false),
+                    );
+                    ui.add(
+                        TextEdit::singleline(&mut self.impedance_options.bias)
+                            .code_editor()
+                            .lock_focus(false)
+                            .clip_text(true)
+                            .desired_width(135.0),
+                    );
+                });
+                ui.add_space(3.0);
+                ui.horizontal(|ui|{
+                    ui.add(
+                        TextEdit::singleline(&mut "Phase:".to_owned())
+                            .frame(false)
+                            .desired_width(35.0)
+                            .clip_text(false),
+                    );
+                    ui.add(
+                        TextEdit::singleline(&mut self.impedance_options.phase)
+                            .code_editor()
+                            .lock_focus(false)
+                            .clip_text(true)
+                            .desired_width(135.0),
+                    );
+                });
+                ui.add_space(3.0);
+                if ui.add_sized([193.0,20.0],Button::new("Set")).clicked(){
+                    let send_cmd="set_bias ".to_owned() 
+                    + &self.impedance_options.bias 
+                    + "\r\n\r\n"
+                    +"set_phase "
+                    + &self.impedance_options.phase 
+                    + "\r\n\r\n";
                     if let Err(err) = self.send_tx.send(send_cmd) {
                         print_to_console(
                             &self.print_lock,
-                            Print::Error(format!("send_tx thread send failed: {:?}", err)),
+                            Print::Error(format!(
+                                "send_tx thread send failed: {:?}",
+                                err
+                            )),
                         );
                     }
-                };
+                }
+                  
             });
             ui.add_space(5.0);
             ui.separator();
             ui.add_space(5.0);
-            ui.horizontal(|ui| {
+            ui.vertical(|ui| {
                 ui.heading("Scan settings");
+                ui.add_space(5.0);
+
+
+
+                
+                egui::ComboBox::from_id_source("i/q select")
+                .selected_text(format!("{}",&self.impedance_options.i_q_select))
+                .width(30.0)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.impedance_options.i_q_select, "i".to_owned(), "q");
+                    ui.selectable_value(&mut self.impedance_options.i_q_select, "q".to_owned(), "i");
+                    
+                });
+
             })
         });
     }
