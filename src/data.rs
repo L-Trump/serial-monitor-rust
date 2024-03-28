@@ -49,6 +49,8 @@ pub struct DataContainer {
     pub absolute_time: Vec<u128>,
     pub dataset: Vec<Vec<f64>>,
     pub raw_traffic: Vec<Packet>,
+    pub received_bias:String,
+    pub received_phase:String,
 }
 
 impl Default for DataContainer {
@@ -59,6 +61,8 @@ impl Default for DataContainer {
             absolute_time: vec![],
             dataset: vec![vec![]],
             raw_traffic: vec![],
+            received_bias:" ".to_string(),
+            received_phase:" ".to_string(),
         }
     }
 }

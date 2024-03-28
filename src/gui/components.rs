@@ -1032,6 +1032,7 @@ impl MyApp {
                             .desired_width(90.0)
                             .clip_text(false),
                     );
+                    
                     ui.add(
                         TextEdit::singleline(&mut self.impedance_options.base_frequency.to_string())
                             .code_editor()
@@ -1057,6 +1058,9 @@ impl MyApp {
                         }
                 }
                 ui.add_space(5.0);
+                self.impedance_options.bias=self.data.received_bias.clone();
+                self.impedance_options.phase=self.data.received_phase.clone();
+                
                 ui.horizontal(|ui|{
                     ui.add(
                         TextEdit::singleline(&mut "Bias:".to_owned())

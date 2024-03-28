@@ -54,7 +54,7 @@ fn split(payload: &str) -> Vec<f64> {
         .map(|x| x.trim())
         .flat_map(|x| x.parse::<f64>())
         .collect()
-
+    
 }
 
 fn main_thread(
@@ -69,6 +69,7 @@ fn main_thread(
     let mut raw_traffic_options = RawTrafficOptions::default();
     let mut failed_format_counter = 0;
     let mut buffer_size = PlotOptions::default().buffer_size;
+    
     loop {
         if let Ok(event) = gui_event_rx.try_recv() {
             match event {
@@ -131,6 +132,13 @@ fn main_thread(
                             .split_off(raw_traffic_len.saturating_sub(raw_traffic_options.max_len));
                     }
                     let split_data = split(&packet.payload);
+
+                    if packet.payload.starts_with("Final bias"){
+                        data.received_bias=split_data[0].to_string();
+                    }else if  packet.payload.starts_with("Final phase offset"){
+                        data.received_phase=split_data[0].to_string();
+                    }
+
                     if data.dataset.is_empty()
                         || failed_format_counter > 10
                         || data.dataset[0].len() != data.time.len()
@@ -175,6 +183,7 @@ fn main_thread(
                         // println!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
                     }
                 }
+
                 // if let Ok(mut write_guard) = data_lock.write() {
                 //     *write_guard = data.clone();
                 // }
@@ -232,6 +241,9 @@ fn main() {
 
     let main_data_lock = data_lock.clone();
     let main_print_lock = print_lock.clone();
+
+
+
 
     println!("starting main thread..");
     let _main_thread_handler = thread::spawn(|| {
