@@ -192,6 +192,7 @@ pub enum GuiTabs {
     PlotOptions,
     Record,
     ImpedacneAnalysis,
+    QCMDynamicAnalysis,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -199,6 +200,15 @@ pub enum GuiWindows {
     RawUART,
     ImpedanceAnalysis,
     QCMDynamic,
+    
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum GuiModules {
+    Generalsettings,
+    Scansettings,
+    QCMDynamicOptions,
+    Init,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -277,7 +287,27 @@ impl Default for ImpedanceOptions {
     }
 }
 
+pub struct QCMDynamicOptions {
+    start_frequency: String,
+    step: String,
+    track_amp: String,
+    track_eps: String,
+    delay_ms: String,
+    holdtime: String,
+}
 
+impl Default for QCMDynamicOptions {
+    fn default() -> Self {
+        Self {
+            start_frequency: "9998000.0".to_owned(),
+            step: "0.05".to_owned(),
+            track_amp: "0.0".to_owned(),
+            track_eps: "5.0".to_owned(),
+            holdtime: "1.0".to_owned(),
+            delay_ms: "0.5".to_string(),
+        }
+    }
+}
 
 pub struct MyApp {
     connected_to_device: bool,
@@ -311,6 +341,8 @@ pub struct MyApp {
     active_tab: Option<GuiTabs>,
     active_window: GuiWindows,
     impedance_options: ImpedanceOptions,
+    qcmdynamic_options:QCMDynamicOptions,
+    active_module:GuiModules,
 }
 
 // #[allow(clippy::too_many_arguments)]
@@ -367,8 +399,10 @@ impl MyApp {
             active_tab: Some(GuiTabs::PlotOptions),
             record_options_tx,
             active_window: GuiWindows::RawUART,
+            active_module: GuiModules::Init,
             left_panel_expanded: true,
             impedance_options: ImpedanceOptions::default(),
+            qcmdynamic_options:QCMDynamicOptions::default(),
         }
     }
 
@@ -430,7 +464,7 @@ impl MyApp {
             let panel_height = ui.available_size().y;
             let spacing = 5.0;
 
-            ui.add_space(spacing);
+            ui.add_space(spacing);                       
             ui.horizontal_centered(|ui| {
                 // ui.add_space(border);
                 ui.vertical(|ui| {
@@ -465,7 +499,17 @@ impl MyApp {
                         {
                             self.active_tab = None
                         };
-
+                        if self.active_window == GuiWindows::QCMDynamic
+                            && ui
+                                .selectable_value(
+                                    &mut self.active_tab,
+                                    Some(GuiTabs::QCMDynamicAnalysis),
+                                    "QCM Dynamic Options",
+                                )
+                                .double_clicked()
+                        {
+                            self.active_tab = None
+                        };
                         if self.active_window == GuiWindows::RawUART
                             && ui
                                 .selectable_value(
@@ -513,6 +557,7 @@ impl MyApp {
                             self.active_tab = None
                         };
 
+                        
                         ui.add_space(ui.available_width() - 25.0);
 
                         if ui
@@ -553,6 +598,9 @@ impl MyApp {
                                 }
                                 GuiTabs::ImpedacneAnalysis => {
                                     self.impedance_ui(ui);
+                                }
+                                GuiTabs::QCMDynamicAnalysis => {
+                                    self.qcmdynamic_ui(ui);
                                 }
                             }
                         }
@@ -627,7 +675,7 @@ impl MyApp {
                             )
                             .clicked()
                         {
-                            self.active_tab = Some(GuiTabs::RawTraffic);
+                            self.active_tab = Some(GuiTabs::QCMDynamicAnalysis);
                         };
                     });
                 }
