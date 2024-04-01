@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use eframe::egui::{Align2, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, SidePanel, Vec2};
-use eframe::emath::One;
+//use eframe::emath::One;
 use eframe::{egui, Storage};
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};

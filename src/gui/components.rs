@@ -463,7 +463,7 @@ impl MyApp {
                     .legend(Legend::default())
                     .x_grid_spacer(log_grid_spacer(10))
                     .y_grid_spacer(log_grid_spacer(10));
-
+                
                 // .x_axis_formatter(t_fmt);
 
                 let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
@@ -720,6 +720,8 @@ impl MyApp {
                         ui.horizontal(|ui| {
                             ui.label("Number of plots [#]: ");
                             ui.add_space(spacing);
+
+                            
 
                             if ui
                                 .button(egui::RichText::new(
@@ -1034,7 +1036,7 @@ impl MyApp {
                     );
                     
                     ui.add(
-                        TextEdit::singleline(&mut self.impedance_options.base_frequency.to_string())
+                        TextEdit::singleline(&mut self.impedance_options.base_frequency)
                             .code_editor()
                             .lock_focus(false)
                             .clip_text(true)
@@ -1044,8 +1046,11 @@ impl MyApp {
                 ui.add_space(3.0);
                 if ui.add_sized([193.0,20.0], Button::new("Auto")).clicked() {
                     self.active_module = GuiModules::Generalsettings;
+                    self.gui_conf.plot_options.number_of_plots = 1;
+                
+
                     let send_cmd="auto_conf ".to_string() 
-                    + &self.impedance_options.base_frequency.to_string() 
+                    + &self.impedance_options.base_frequency
                     + "\r\n\r\n";
                         if let Err(err) = self.send_tx.send(send_cmd) {
                             print_to_console(
@@ -1060,7 +1065,6 @@ impl MyApp {
                 ui.add_space(5.0);
                 self.impedance_options.bias=self.data.received_bias.clone();
                 self.impedance_options.phase=self.data.received_phase.clone();
-                
                 ui.horizontal(|ui|{
                     ui.add(
                         TextEdit::singleline(&mut "Bias:".to_owned())
@@ -1195,8 +1199,11 @@ impl MyApp {
                     });
                     ui.add_space(10.0);
                     if ui.add_sized([120.0,20.0], Button::new("iq shot")).clicked() {
-                        //self.gui_conf.plot_options.number_of_plots = 2;
+                        self.gui_conf.plot_options.number_of_plots = 2;
                         self.active_module = GuiModules::Scansettings;
+
+
+
                         let send_cmd="get_iq_shot ".to_owned() 
                         + &self.impedance_options.start_frequency 
                         + ","
@@ -1218,7 +1225,7 @@ impl MyApp {
                     }
                     ui.add_space(10.0);
                     if ui.add_sized([120.0,20.0], Button::new("iq realtime")).clicked() {
-                        //self.gui_conf.plot_options.number_of_plots = 2;
+                        self.gui_conf.plot_options.number_of_plots = 1;
                         self.active_module = GuiModules::Scansettings;
                         let send_cmd="get_iq_realtime ".to_owned() 
                         + &self.impedance_options.start_frequency 
