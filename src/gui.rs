@@ -1,6 +1,6 @@
 use core::f32;
 use std::path::PathBuf;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::data::{DataContainer, SerialDirection};
 use crate::record::RecordOptions;
 use crate::serial::{save_serial_settings, Device, SerialDevices};
-use crate::GuiEvent;
+use crate::{GuiEvent, QCMEvent};
 use crate::{APP_INFO, PREFS_KEY};
 
 mod components;
@@ -147,6 +147,8 @@ pub struct GuiSettingsContainer {
     pub raw_traffic_options: RawTrafficOptions,
     pub record_options: RecordOptions,
     pub commands: Vec<Command>,
+    pub impedance_options: ImpedanceOptions,
+    pub qcm_dynamic_options: QCMDynamicOptions,
 }
 
 impl Default for GuiSettingsContainer {
@@ -167,6 +169,8 @@ impl Default for GuiSettingsContainer {
                 cmd: "".to_owned(),
                 editing: false,
             }],
+            impedance_options: ImpedanceOptions::default(),
+            qcm_dynamic_options: QCMDynamicOptions::default(),
         }
     }
 }
@@ -200,7 +204,6 @@ pub enum GuiWindows {
     RawUART,
     ImpedanceAnalysis,
     QCMDynamic,
-    
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -260,7 +263,7 @@ impl Default for PlotOptions {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ImpedanceOptions {
     start_frequency: String,
     stop_frequency: String,
@@ -287,6 +290,7 @@ impl Default for ImpedanceOptions {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct QCMDynamicOptions {
     start_frequency: String,
     step: String,
@@ -301,8 +305,8 @@ impl Default for QCMDynamicOptions {
         Self {
             start_frequency: "9998000.0".to_owned(),
             step: "0.05".to_owned(),
-            track_amp: "0.0".to_owned(),
-            track_eps: "5.0".to_owned(),
+            track_amp: "0".to_owned(),
+            track_eps: "5".to_owned(),
             holdtime: "1.0".to_owned(),
             delay_ms: "0.5".to_string(),
         }
@@ -330,6 +334,7 @@ pub struct MyApp {
     send_tx: Sender<String>,
     gui_event_tx: Sender<GuiEvent>,
     record_options_tx: Sender<RecordOptions>,
+    qcm_event_rx: Receiver<QCMEvent>,
     history: Vec<String>,
     index: usize,
     save_raw: bool,
@@ -340,9 +345,7 @@ pub struct MyApp {
     left_panel_expanded: bool,
     active_tab: Option<GuiTabs>,
     active_window: GuiWindows,
-    impedance_options: ImpedanceOptions,
-    qcmdynamic_options:QCMDynamicOptions,
-    active_module:GuiModules,
+    active_module: GuiModules,
 }
 
 // #[allow(clippy::too_many_arguments)]
@@ -358,6 +361,7 @@ impl MyApp {
         send_tx: Sender<String>,
         gui_event_tx: Sender<GuiEvent>,
         record_options_tx: Sender<RecordOptions>,
+        qcm_event_rx: Receiver<QCMEvent>,
     ) -> Self {
         gui_event_tx
             .send(GuiEvent::SetRawTrafficOptions(
@@ -401,8 +405,7 @@ impl MyApp {
             active_window: GuiWindows::RawUART,
             active_module: GuiModules::Init,
             left_panel_expanded: true,
-            impedance_options: ImpedanceOptions::default(),
-            qcmdynamic_options:QCMDynamicOptions::default(),
+            qcm_event_rx,
         }
     }
 
@@ -464,7 +467,7 @@ impl MyApp {
             let panel_height = ui.available_size().y;
             let spacing = 5.0;
 
-            ui.add_space(spacing);                       
+            ui.add_space(spacing);
             ui.horizontal_centered(|ui| {
                 // ui.add_space(border);
                 ui.vertical(|ui| {
@@ -510,7 +513,8 @@ impl MyApp {
                         {
                             self.active_tab = None
                         };
-                        if self.active_window == GuiWindows::RawUART
+                        if (self.active_window == GuiWindows::RawUART
+                            || self.active_window == GuiWindows::QCMDynamic)
                             && ui
                                 .selectable_value(
                                     &mut self.active_tab,
@@ -545,7 +549,8 @@ impl MyApp {
                             self.active_tab = None
                         };
 
-                        if self.active_window == GuiWindows::RawUART
+                        if (self.active_window == GuiWindows::RawUART
+                            || self.active_window == GuiWindows::QCMDynamic)
                             && ui
                                 .selectable_value(
                                     &mut self.active_tab,
@@ -557,7 +562,6 @@ impl MyApp {
                             self.active_tab = None
                         };
 
-                        
                         ui.add_space(ui.available_width() - 25.0);
 
                         if ui
@@ -656,6 +660,9 @@ impl MyApp {
                             .clicked()
                         {
                             self.active_tab = Some(GuiTabs::PlotOptions);
+                            self.gui_event_tx
+                                .send(GuiEvent::SetGuiWindow(GuiWindows::RawUART))
+                                .expect("failed to sync gui window")
                         };
                         if ui
                             .selectable_value(
@@ -666,6 +673,9 @@ impl MyApp {
                             .clicked()
                         {
                             self.active_tab = Some(GuiTabs::ImpedacneAnalysis);
+                            self.gui_event_tx
+                                .send(GuiEvent::SetGuiWindow(GuiWindows::ImpedanceAnalysis))
+                                .expect("failed to sync gui window")
                         };
                         if ui
                             .selectable_value(
@@ -676,6 +686,9 @@ impl MyApp {
                             .clicked()
                         {
                             self.active_tab = Some(GuiTabs::QCMDynamicAnalysis);
+                            self.gui_event_tx
+                                .send(GuiEvent::SetGuiWindow(GuiWindows::QCMDynamic))
+                                .expect("failed to sync gui window")
                         };
                     });
                 }
@@ -757,6 +770,50 @@ impl eframe::App for MyApp {
 
         if let Ok(read_guard) = self.data_lock.read() {
             self.data = read_guard.clone();
+        }
+
+        if self.active_window != GuiWindows::RawUART {
+            if let Ok(event) = self.qcm_event_rx.try_recv() {
+                match event {
+                    QCMEvent::BiasDetectStart => {
+                        self.gui_conf.plot_options.number_of_plots = 1;
+                        self.gui_conf.plot_options.first_data_x_axis = false;
+                        self.gui_conf.plot_options.labels = self.data.names.clone();
+                    }
+                    QCMEvent::BiasResult(bias) => {
+                        self.gui_conf.impedance_options.bias = bias.to_string()
+                    }
+                    QCMEvent::PhaseBaseDetectStart => {
+                        self.gui_conf.plot_options.number_of_plots = 1;
+                        self.gui_conf.plot_options.first_data_x_axis = false;
+                        self.gui_conf.plot_options.labels = self.data.names.clone();
+                    }
+                    QCMEvent::PhaseBaseResult(phase) => {
+                        self.gui_conf.impedance_options.phase = phase.to_string();
+                    }
+                    QCMEvent::ShotIQStart(_) => {
+                        self.gui_conf.plot_options.number_of_plots = 2;
+                        self.gui_conf.plot_options.first_data_x_axis = true;
+                        self.gui_conf.plot_options.labels = self.data.names.clone();
+                    }
+                    QCMEvent::RealtimeIQStart(_) => {
+                        self.gui_conf.plot_options.number_of_plots = 1;
+                        self.gui_conf.plot_options.first_data_x_axis = true;
+                        self.gui_conf.plot_options.labels = self.data.names.clone();
+                    }
+                    QCMEvent::TrackStart(_) => {
+                        self.gui_conf.plot_options.number_of_plots = 2;
+                        self.gui_conf.plot_options.first_data_x_axis = false;
+                        self.gui_conf.plot_options.labels = self.data.names.clone();
+                    }
+                    QCMEvent::MultiParamsStart(_) => {
+                        self.gui_conf.plot_options.number_of_plots = 3;
+                        self.gui_conf.plot_options.first_data_x_axis = false;
+                        self.gui_conf.plot_options.labels = self.data.names.clone();
+                    }
+                    _ => (),
+                }
+            };
         }
 
         self.draw_side_panel(ctx, frame);

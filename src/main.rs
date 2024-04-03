@@ -13,7 +13,9 @@ use std::time::Duration;
 
 use eframe::egui::{vec2, ViewportBuilder, Visuals};
 use eframe::{egui, icon_data};
-use gui::{PlotOptions, RawTrafficOptions};
+use font_kit::family_name::FamilyName;
+use font_kit::properties::Properties;
+use gui::{GuiWindows, PlotOptions, RawTrafficOptions};
 use preferences::AppInfo;
 
 use crate::data::{DataContainer, Packet};
@@ -41,7 +43,22 @@ enum GuiEvent {
     SetBufferSize(usize),
     SetNames(Vec<String>),
     SaveCSV(FileOptions),
+    SetGuiWindow(GuiWindows),
     Clear,
+}
+
+#[derive(Debug)]
+enum QCMEvent {
+    BiasDetectStart,
+    BiasResult(i32),
+    PhaseBaseDetectStart,
+    PhaseBaseResult(f64),
+    ShotIQStart(usize),
+    ShotIQFinish(usize),
+    RealtimeIQStart(usize),
+    RealtimeIQFinish(usize),
+    TrackStart(usize),
+    MultiParamsStart(usize),
 }
 
 fn split(payload: &str) -> Vec<f64> {
@@ -54,7 +71,33 @@ fn split(payload: &str) -> Vec<f64> {
         .map(|x| x.trim())
         .flat_map(|x| x.parse::<f64>())
         .collect()
-    
+}
+
+fn parse_qcm_event(cmd_strs: Vec<&str>) -> Option<QCMEvent> {
+    let event_str = cmd_strs[0];
+    match event_str {
+        "BIASST" => Some(QCMEvent::BiasDetectStart),
+        "BIAS" => Some(QCMEvent::BiasResult(cmd_strs.get(1)?.trim().parse().ok()?)),
+        "PHAST" => Some(QCMEvent::PhaseBaseDetectStart),
+        "PHABASE" => Some(QCMEvent::PhaseBaseResult(
+            cmd_strs.get(1)?.trim().parse().ok()?,
+        )),
+        "SHOTST" => Some(QCMEvent::ShotIQStart(cmd_strs.get(1)?.trim().parse().ok()?)),
+        "SHOTFIN" => Some(QCMEvent::ShotIQFinish(
+            cmd_strs.get(1)?.trim().parse().ok()?,
+        )),
+        "RTST" => Some(QCMEvent::RealtimeIQStart(
+            cmd_strs.get(1)?.trim().parse().ok()?,
+        )),
+        "RTFIN" => Some(QCMEvent::RealtimeIQFinish(
+            cmd_strs.get(1)?.trim().parse().ok()?,
+        )),
+        "TRACKST" => Some(QCMEvent::TrackStart(cmd_strs.get(1)?.trim().parse().ok()?)),
+        "MULTIPARAST" => Some(QCMEvent::MultiParamsStart(
+            cmd_strs.get(1)?.trim().parse().ok()?,
+        )),
+        _ => None,
+    }
 }
 
 fn main_thread(
@@ -63,13 +106,15 @@ fn main_thread(
     raw_data_rx: Receiver<Packet>,
     gui_event_rx: Receiver<GuiEvent>,
     record_data_tx: Sender<RecordData>,
+    qcm_event_tx: Sender<QCMEvent>,
 ) {
     // reads data from mutex, samples and saves if needed
     // let mut data = DataContainer::default();
     let mut raw_traffic_options = RawTrafficOptions::default();
     let mut failed_format_counter = 0;
     let mut buffer_size = PlotOptions::default().buffer_size;
-    
+    let mut gui_window = GuiWindows::RawUART;
+
     loop {
         if let Ok(event) = gui_event_rx.try_recv() {
             match event {
@@ -110,16 +155,64 @@ fn main_thread(
                     }
                 }
                 GuiEvent::SetBufferSize(s) => buffer_size = s,
+                GuiEvent::SetGuiWindow(window) => gui_window = window,
             }
         }
 
-        if let Ok(packet) = raw_data_rx.recv_timeout(Duration::from_millis(1)) {
+        if let Ok(packet) = raw_data_rx.try_recv() {
             if !packet.payload.is_empty() {
-                if packet.payload.starts_with("###") {
-                    print_to_console(
-                        &print_lock,
-                        Print::Debug(packet.payload.replace("###", "")),
-                    );
+                if packet.payload.starts_with("#") {
+                    print_to_console(&print_lock, Print::Debug(packet.payload[1..].into()));
+                    continue;
+                }
+                if packet.payload.starts_with("$") {
+                    if gui_window == GuiWindows::RawUART {
+                        continue;
+                    }
+                    let cmd_strs = packet.payload[1..].split("$").collect::<Vec<&str>>();
+                    if let Some(event) = parse_qcm_event(cmd_strs) {
+                        if let Ok(write_guard) = data_lock.write() {
+                            let mut data = write_guard;
+                            match event {
+                                QCMEvent::BiasDetectStart => {
+                                    data.names = vec!["Cur. Bias".into(), "Avg. Bias".into()];
+                                    failed_format_counter = 20;
+                                }
+                                QCMEvent::PhaseBaseDetectStart => {
+                                    data.names = vec![
+                                        "Cur. Phase".into(),
+                                        "Avg. Phase".into(),
+                                        "Cur. Amp".into(),
+                                    ];
+                                    failed_format_counter = 20;
+                                }
+                                QCMEvent::ShotIQStart(_) => {
+                                    data.names =
+                                        vec!["Freq.".into(), "G Resp.".into(), "B Resp.".into()];
+                                    failed_format_counter = 20;
+                                }
+                                QCMEvent::RealtimeIQStart(_) => {
+                                    data.names = vec!["Freq.".into(), "Resp.".into()];
+                                    failed_format_counter = 20;
+                                }
+                                QCMEvent::TrackStart(_) => {
+                                    data.names =
+                                        vec!["Cur. Reson. Freq.".into(), "Cur. B Resp.".into()];
+                                    failed_format_counter = 20;
+                                }
+                                QCMEvent::MultiParamsStart(_) => {
+                                    data.names = vec![
+                                        "Cur. Reson. Freq.".into(),
+                                        "Max. G Resp.".into(),
+                                        "Q Factor".into(),
+                                    ];
+                                    failed_format_counter = 20;
+                                }
+                                _ => (),
+                            }
+                        }
+                        qcm_event_tx.send(event).expect("failed to send qcm event");
+                    }
                     continue;
                 }
                 if let Ok(write_guard) = data_lock.write() {
@@ -132,12 +225,6 @@ fn main_thread(
                             .split_off(raw_traffic_len.saturating_sub(raw_traffic_options.max_len));
                     }
                     let split_data = split(&packet.payload);
-
-                    if packet.payload.starts_with("Final bias"){
-                        data.received_bias=split_data[0].to_string();
-                    }else if  packet.payload.starts_with("Final phase offset"){
-                        data.received_phase=split_data[0].to_string();
-                    }
 
                     if data.dataset.is_empty()
                         || failed_format_counter > 10
@@ -190,7 +277,7 @@ fn main_thread(
             }
         }
 
-        // std::thread::sleep(Duration::from_millis(10));
+        std::thread::sleep(Duration::from_millis(1));
     }
 }
 
@@ -209,6 +296,7 @@ fn main() {
     let (gui_event_tx, gui_event_rx) = mpsc::channel::<GuiEvent>();
     let (record_options_tx, record_options_rx) = mpsc::channel::<RecordOptions>();
     let (record_data_tx, record_data_rx) = mpsc::channel::<RecordData>();
+    let (qcm_event_tx, qcm_event_rx) = mpsc::channel::<QCMEvent>();
 
     let serial_device_lock = device_lock.clone();
     let serial_devices_lock = devices_lock.clone();
@@ -242,9 +330,6 @@ fn main() {
     let main_data_lock = data_lock.clone();
     let main_print_lock = print_lock.clone();
 
-
-
-
     println!("starting main thread..");
     let _main_thread_handler = thread::spawn(|| {
         main_thread(
@@ -253,6 +338,7 @@ fn main() {
             raw_data_rx,
             gui_event_rx,
             record_data_tx,
+            qcm_event_tx,
         );
     });
 
@@ -296,6 +382,7 @@ fn main() {
                 send_tx,
                 gui_event_tx,
                 record_options_tx,
+                qcm_event_rx,
             ))
         }),
     ) {

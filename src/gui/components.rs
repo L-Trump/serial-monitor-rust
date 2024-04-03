@@ -425,6 +425,8 @@ impl MyApp {
             .len()
             .saturating_sub(self.gui_conf.plot_options.plotting_range);
 
+        let initial_time = *self.data.time.get(0).unwrap_or(&0);
+
         for (i, time) in self.data.time[window..].iter().enumerate() {
             let x = match self.gui_conf.plot_options.x_axis {
                 XAxisType::Time => *time as f64 / 1000.0,
@@ -463,7 +465,7 @@ impl MyApp {
                     .legend(Legend::default())
                     .x_grid_spacer(log_grid_spacer(10))
                     .y_grid_spacer(log_grid_spacer(10));
-                
+
                 // .x_axis_formatter(t_fmt);
 
                 let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
@@ -720,8 +722,6 @@ impl MyApp {
                         ui.horizontal(|ui| {
                             ui.label("Number of plots [#]: ");
                             ui.add_space(spacing);
-
-                            
 
                             if ui
                                 .button(egui::RichText::new(
@@ -1027,16 +1027,16 @@ impl MyApp {
             ui.vertical(|ui| {
                 ui.heading("General settings");
                 ui.add_space(10.0);
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     ui.add(
                         TextEdit::singleline(&mut "Base Frequency:".to_owned())
                             .frame(false)
                             .desired_width(90.0)
                             .clip_text(false),
                     );
-                    
+
                     ui.add(
-                        TextEdit::singleline(&mut self.impedance_options.base_frequency)
+                        TextEdit::singleline(&mut self.gui_conf.impedance_options.base_frequency)
                             .code_editor()
                             .lock_focus(false)
                             .clip_text(true)
@@ -1044,28 +1044,22 @@ impl MyApp {
                     );
                 });
                 ui.add_space(3.0);
-                if ui.add_sized([193.0,20.0], Button::new("Auto")).clicked() {
+                if ui.add_sized([193.0, 20.0], Button::new("Auto")).clicked() {
                     self.active_module = GuiModules::Generalsettings;
                     self.gui_conf.plot_options.number_of_plots = 1;
-                
 
-                    let send_cmd="auto_conf ".to_string() 
-                    + &self.impedance_options.base_frequency
-                    + "\r\n\r\n";
-                        if let Err(err) = self.send_tx.send(send_cmd) {
-                            print_to_console(
-                                &self.print_lock,
-                                Print::Error(format!(
-                                    "send_tx thread send failed: {:?}",
-                                    err
-                                )),
-                            );
-                        }
+                    let send_cmd = "auto_conf ".to_string()
+                        + &self.gui_conf.impedance_options.base_frequency
+                        + "\r\n\r\n";
+                    if let Err(err) = self.send_tx.send(send_cmd) {
+                        print_to_console(
+                            &self.print_lock,
+                            Print::Error(format!("send_tx thread send failed: {:?}", err)),
+                        );
+                    }
                 }
                 ui.add_space(5.0);
-                self.impedance_options.bias=self.data.received_bias.clone();
-                self.impedance_options.phase=self.data.received_phase.clone();
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     ui.add(
                         TextEdit::singleline(&mut "Bias:".to_owned())
                             .frame(false)
@@ -1073,7 +1067,7 @@ impl MyApp {
                             .clip_text(false),
                     );
                     ui.add(
-                        TextEdit::singleline(&mut self.impedance_options.bias)
+                        TextEdit::singleline(&mut self.gui_conf.impedance_options.bias)
                             .code_editor()
                             .lock_focus(false)
                             .clip_text(true)
@@ -1081,7 +1075,7 @@ impl MyApp {
                     );
                 });
                 ui.add_space(3.0);
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     ui.add(
                         TextEdit::singleline(&mut "Phase:".to_owned())
                             .frame(false)
@@ -1089,7 +1083,7 @@ impl MyApp {
                             .clip_text(false),
                     );
                     ui.add(
-                        TextEdit::singleline(&mut self.impedance_options.phase)
+                        TextEdit::singleline(&mut self.gui_conf.impedance_options.phase)
                             .code_editor()
                             .lock_focus(false)
                             .clip_text(true)
@@ -1097,24 +1091,30 @@ impl MyApp {
                     );
                 });
                 ui.add_space(3.0);
-                if ui.add_sized([193.0,20.0],Button::new("Set")).clicked(){
-                    let send_cmd="set_bias ".to_owned() 
-                    + &self.impedance_options.bias 
-                    + "\r\n\r\n"
-                    +"set_phase "
-                    + &self.impedance_options.phase 
-                    + "\r\n\r\n";
+                if ui.add_sized([193.0, 20.0], Button::new("Get")).clicked() {
+                    let send_cmd = "get_bias\r\n\r\nget_phase\r\n\r\n".into();
                     if let Err(err) = self.send_tx.send(send_cmd) {
                         print_to_console(
                             &self.print_lock,
-                            Print::Error(format!(
-                                "send_tx thread send failed: {:?}",
-                                err
-                            )),
+                            Print::Error(format!("send_tx thread send failed: {:?}", err)),
                         );
                     }
                 }
-                  
+                ui.add_space(3.0);
+                if ui.add_sized([193.0, 20.0], Button::new("Set")).clicked() {
+                    let send_cmd = "set_bias ".to_owned()
+                        + &self.gui_conf.impedance_options.bias
+                        + "\r\n\r\n"
+                        + "set_phase "
+                        + &self.gui_conf.impedance_options.phase
+                        + "\r\n\r\n";
+                    if let Err(err) = self.send_tx.send(send_cmd) {
+                        print_to_console(
+                            &self.print_lock,
+                            Print::Error(format!("send_tx thread send failed: {:?}", err)),
+                        );
+                    }
+                }
             });
             ui.add_space(5.0);
             ui.separator();
@@ -1122,7 +1122,7 @@ impl MyApp {
             ui.vertical(|ui| {
                 ui.heading("Scan settings");
                 ui.add_space(5.0);
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     ui.add(
                         TextEdit::singleline(&mut "Start Frequency:".to_owned())
                             .frame(false)
@@ -1130,7 +1130,7 @@ impl MyApp {
                             .clip_text(false),
                     );
                     ui.add(
-                        TextEdit::singleline(&mut self.impedance_options.start_frequency)
+                        TextEdit::singleline(&mut self.gui_conf.impedance_options.start_frequency)
                             .code_editor()
                             .lock_focus(false)
                             .clip_text(true)
@@ -1144,7 +1144,7 @@ impl MyApp {
                             .clip_text(false),
                     );
                     ui.add(
-                        TextEdit::singleline(&mut self.impedance_options.stop_frequency)
+                        TextEdit::singleline(&mut self.gui_conf.impedance_options.stop_frequency)
                             .code_editor()
                             .lock_focus(false)
                             .clip_text(true)
@@ -1152,7 +1152,7 @@ impl MyApp {
                     );
                 });
                 ui.add_space(10.0);
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     ui.add(
                         TextEdit::singleline(&mut "Frequency step:".to_owned())
                             .frame(false)
@@ -1160,7 +1160,7 @@ impl MyApp {
                             .clip_text(false),
                     );
                     ui.add(
-                        TextEdit::singleline(&mut self.impedance_options.frequency_step)
+                        TextEdit::singleline(&mut self.gui_conf.impedance_options.frequency_step)
                             .code_editor()
                             .lock_focus(false)
                             .clip_text(true)
@@ -1174,7 +1174,7 @@ impl MyApp {
                             .clip_text(false),
                     );
                     ui.add(
-                        TextEdit::singleline(&mut self.impedance_options.holdtime)
+                        TextEdit::singleline(&mut self.gui_conf.impedance_options.holdtime)
                             .code_editor()
                             .lock_focus(false)
                             .clip_text(true)
@@ -1182,7 +1182,7 @@ impl MyApp {
                     );
                 });
                 ui.add_space(10.0);
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     ui.add(
                         TextEdit::singleline(&mut "I/Q Select:".to_owned())
                             .frame(false)
@@ -1190,89 +1190,93 @@ impl MyApp {
                             .clip_text(false),
                     );
                     egui::ComboBox::from_id_source("i/q select")
-                    .selected_text(format!("{}",&self.impedance_options.i_q_select))
-                    .width(145.0)
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.impedance_options.i_q_select, "i".to_owned(), "       i");
-                        ui.selectable_value(&mut self.impedance_options.i_q_select, "q".to_owned(), "       q");
-                        
-                    });
+                        .selected_text(format!("{}", &self.gui_conf.impedance_options.i_q_select))
+                        .width(145.0)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut self.gui_conf.impedance_options.i_q_select,
+                                "i".to_owned(),
+                                "       i",
+                            );
+                            ui.selectable_value(
+                                &mut self.gui_conf.impedance_options.i_q_select,
+                                "q".to_owned(),
+                                "       q",
+                            );
+                        });
                     ui.add_space(10.0);
-                    if ui.add_sized([120.0,20.0], Button::new("iq shot")).clicked() {
+                    if ui
+                        .add_sized([120.0, 20.0], Button::new("iq shot"))
+                        .clicked()
+                    {
                         self.gui_conf.plot_options.number_of_plots = 2;
                         self.active_module = GuiModules::Scansettings;
 
-
-
-                        let send_cmd="get_iq_shot ".to_owned() 
-                        + &self.impedance_options.start_frequency 
-                        + ","
-                        + &self.impedance_options.stop_frequency 
-                        + ","
-                        + &self.impedance_options.frequency_step 
-                        + ","
-                        + &self.impedance_options.holdtime 
-                        + "\r\n\r\n";
+                        let send_cmd = "get_iq_shot ".to_owned()
+                            + &self.gui_conf.impedance_options.start_frequency
+                            + ","
+                            + &self.gui_conf.impedance_options.stop_frequency
+                            + ","
+                            + &self.gui_conf.impedance_options.frequency_step
+                            + ","
+                            + &self.gui_conf.impedance_options.holdtime
+                            + ",s\r\n\r\n";
                         if let Err(err) = self.send_tx.send(send_cmd) {
                             print_to_console(
                                 &self.print_lock,
-                                Print::Error(format!(
-                                    "send_tx thread send failed: {:?}",
-                                    err
-                                )),
+                                Print::Error(format!("send_tx thread send failed: {:?}", err)),
                             );
                         }
                     }
                     ui.add_space(10.0);
-                    if ui.add_sized([120.0,20.0], Button::new("iq realtime")).clicked() {
+                    if ui
+                        .add_sized([120.0, 20.0], Button::new("iq realtime"))
+                        .clicked()
+                    {
                         self.gui_conf.plot_options.number_of_plots = 1;
                         self.active_module = GuiModules::Scansettings;
-                        let send_cmd="get_iq_realtime ".to_owned() 
-                        + &self.impedance_options.start_frequency 
-                        + ","
-                        + &self.impedance_options.stop_frequency 
-                        + ","
-                        + &self.impedance_options.frequency_step 
-                        + ","
-                        + &self.impedance_options.holdtime 
-                        + ","
-                        + &self.impedance_options.i_q_select
-                        + "\r\n\r\n";
+                        let send_cmd = "get_iq_realtime ".to_owned()
+                            + &self.gui_conf.impedance_options.start_frequency
+                            + ","
+                            + &self.gui_conf.impedance_options.stop_frequency
+                            + ","
+                            + &self.gui_conf.impedance_options.frequency_step
+                            + ","
+                            + &self.gui_conf.impedance_options.holdtime
+                            + ","
+                            + &self.gui_conf.impedance_options.i_q_select
+                            + ",s\r\n\r\n";
                         if let Err(err) = self.send_tx.send(send_cmd) {
                             print_to_console(
                                 &self.print_lock,
-                                Print::Error(format!(
-                                    "send_tx thread send failed: {:?}",
-                                    err
-                                )),
+                                Print::Error(format!("send_tx thread send failed: {:?}", err)),
                             );
                         }
                     }
                 });
                 ui.add_space(10.0);
-                if ui.add_sized([ui.available_width()-29.0,20.0], Button::new("STOP")).clicked(){
-                    let send_cmd="stop ".to_owned()+ "\r\n\r\n";
+                if ui
+                    .add_sized([ui.available_width() - 29.0, 20.0], Button::new("STOP"))
+                    .clicked()
+                {
+                    let send_cmd = "stop ".to_owned() + "\r\n\r\n";
                     if let Err(err) = self.send_tx.send(send_cmd) {
                         print_to_console(
                             &self.print_lock,
-                            Print::Error(format!(
-                                "send_tx thread send failed: {:?}",
-                                err
-                            )),
+                            Print::Error(format!("send_tx thread send failed: {:?}", err)),
                         );
                     }
                 }
-                
-
             })
         });
     }
-    pub fn qcmdynamic_ui(&mut self, ui: &mut egui::Ui){
-        ui.horizontal_centered(|ui|{
-            ui.vertical(|ui|{
+
+    pub fn qcmdynamic_ui(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal_centered(|ui| {
+            ui.vertical(|ui| {
                 ui.heading("QCM Dynamic Options");
                 ui.add_space(10.0);
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     ui.add(
                         TextEdit::singleline(&mut "Start Frequency:".to_owned())
                             .frame(false)
@@ -1280,11 +1284,13 @@ impl MyApp {
                             .clip_text(false),
                     );
                     ui.add(
-                        TextEdit::singleline(&mut self.qcmdynamic_options.start_frequency)
-                            .code_editor()
-                            .lock_focus(false)
-                            .clip_text(true)
-                            .desired_width(135.0),
+                        TextEdit::singleline(
+                            &mut self.gui_conf.qcm_dynamic_options.start_frequency,
+                        )
+                        .code_editor()
+                        .lock_focus(false)
+                        .clip_text(true)
+                        .desired_width(135.0),
                     );
                     ui.add_space(10.0);
                     ui.add(
@@ -1294,7 +1300,7 @@ impl MyApp {
                             .clip_text(false),
                     );
                     ui.add(
-                        TextEdit::singleline(&mut self.qcmdynamic_options.step)
+                        TextEdit::singleline(&mut self.gui_conf.qcm_dynamic_options.step)
                             .code_editor()
                             .lock_focus(false)
                             .clip_text(true)
@@ -1302,7 +1308,7 @@ impl MyApp {
                     );
                 });
                 ui.add_space(10.0);
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     ui.add(
                         TextEdit::singleline(&mut "Track amp:".to_owned())
                             .frame(false)
@@ -1310,7 +1316,7 @@ impl MyApp {
                             .clip_text(false),
                     );
                     ui.add(
-                        TextEdit::singleline(&mut self.qcmdynamic_options.track_amp)
+                        TextEdit::singleline(&mut self.gui_conf.qcm_dynamic_options.track_amp)
                             .code_editor()
                             .lock_focus(false)
                             .clip_text(true)
@@ -1324,7 +1330,7 @@ impl MyApp {
                             .clip_text(false),
                     );
                     ui.add(
-                        TextEdit::singleline(&mut self.qcmdynamic_options.track_eps)
+                        TextEdit::singleline(&mut self.gui_conf.qcm_dynamic_options.track_eps)
                             .code_editor()
                             .lock_focus(false)
                             .clip_text(true)
@@ -1332,7 +1338,7 @@ impl MyApp {
                     );
                 });
                 ui.add_space(10.0);
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     ui.add(
                         TextEdit::singleline(&mut "Holdtime:".to_owned())
                             .frame(false)
@@ -1340,7 +1346,7 @@ impl MyApp {
                             .clip_text(false),
                     );
                     ui.add(
-                        TextEdit::singleline(&mut self.qcmdynamic_options.holdtime)
+                        TextEdit::singleline(&mut self.gui_conf.qcm_dynamic_options.holdtime)
                             .code_editor()
                             .lock_focus(false)
                             .clip_text(true)
@@ -1354,7 +1360,7 @@ impl MyApp {
                             .clip_text(false),
                     );
                     ui.add(
-                        TextEdit::singleline(&mut self.qcmdynamic_options.delay_ms)
+                        TextEdit::singleline(&mut self.gui_conf.qcm_dynamic_options.delay_ms)
                             .code_editor()
                             .lock_focus(false)
                             .clip_text(true)
@@ -1362,32 +1368,46 @@ impl MyApp {
                     );
                 });
                 ui.add_space(10.0);
-                if ui.add_sized([ui.available_width(),20.0], Button::new("Set")).clicked() {
+                if ui
+                    .add_sized([ui.available_width(), 20.0], Button::new("Start"))
+                    .clicked()
+                {
                     self.active_module = GuiModules::QCMDynamicOptions;
-                    let send_cmd="track ".to_owned() 
-                    + &self.qcmdynamic_options.start_frequency 
-                    + ","
-                    + &self.qcmdynamic_options.step 
-                    + ","
-                    + &self.qcmdynamic_options.track_amp 
-                    + ","
-                    + &self.qcmdynamic_options.track_eps 
-                    + ","
-                    + &self.qcmdynamic_options.holdtime
-                    + ","
-                    + &self.qcmdynamic_options.delay_ms
-                    + "\r\n\r\n";
+                    let send_cmd = "track ".to_owned()
+                        + &self.gui_conf.qcm_dynamic_options.start_frequency
+                        + ","
+                        + &self.gui_conf.qcm_dynamic_options.step
+                        + ","
+                        + &self.gui_conf.qcm_dynamic_options.track_amp
+                        + ","
+                        + &self.gui_conf.qcm_dynamic_options.track_eps
+                        + ","
+                        + &self.gui_conf.qcm_dynamic_options.holdtime
+                        + ","
+                        + &self.gui_conf.qcm_dynamic_options.delay_ms
+                        + "\r\n\r\n";
                     if let Err(err) = self.send_tx.send(send_cmd) {
                         print_to_console(
                             &self.print_lock,
-                            Print::Error(format!(
-                                "send_tx thread send failed: {:?}",
-                                err
-                            )),
+                            Print::Error(format!("send_tx thread send failed: {:?}", err)),
+                        );
+                    }
+                }
+                ui.add_space(10.0);
+                if ui
+                    .add_sized([ui.available_width(), 20.0], Button::new("Stop"))
+                    .clicked()
+                {
+                    self.active_module = GuiModules::QCMDynamicOptions;
+                    let send_cmd = "stop\r\n\r\n".into();
+                    if let Err(err) = self.send_tx.send(send_cmd) {
+                        print_to_console(
+                            &self.print_lock,
+                            Print::Error(format!("send_tx thread send failed: {:?}", err)),
                         );
                     }
                 }
             });
-        }); 
+        });
     }
 }

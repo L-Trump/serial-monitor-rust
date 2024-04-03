@@ -126,5 +126,7 @@ pub fn record_thread(
             wtr = None;
             let _recv = record_data_rx.recv_timeout(Duration::from_millis(100));
         }
+
+        std::thread::sleep(Duration::from_millis(1));
     }
 }
