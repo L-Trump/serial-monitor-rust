@@ -429,7 +429,7 @@ impl MyApp {
 
         for (i, time) in self.data.time[window..].iter().enumerate() {
             let x = match self.gui_conf.plot_options.x_axis {
-                XAxisType::Time => *time as f64 / 1000.0,
+                XAxisType::Time => (*time).saturating_sub(initial_time) as f64 / 1000.0,
                 XAxisType::Point => (i + 1) as f64,
                 XAxisType::FirstData => self.data.dataset[0].get(i + window).unwrap().clone(),
             };
@@ -1393,7 +1393,7 @@ impl MyApp {
                         );
                     }
                 }
-                ui.add_space(10.0);
+                ui.add_space(3.0);
                 if ui
                     .add_sized([ui.available_width(), 20.0], Button::new("Stop"))
                     .clicked()

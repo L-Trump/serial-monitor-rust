@@ -13,8 +13,6 @@ use std::time::Duration;
 
 use eframe::egui::{vec2, ViewportBuilder, Visuals};
 use eframe::{egui, icon_data};
-use font_kit::family_name::FamilyName;
-use font_kit::properties::Properties;
 use gui::{GuiWindows, PlotOptions, RawTrafficOptions};
 use preferences::AppInfo;
 

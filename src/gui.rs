@@ -777,7 +777,7 @@ impl eframe::App for MyApp {
                 match event {
                     QCMEvent::BiasDetectStart => {
                         self.gui_conf.plot_options.number_of_plots = 1;
-                        self.gui_conf.plot_options.first_data_x_axis = false;
+                        self.gui_conf.plot_options.x_axis = XAxisType::Point;
                         self.gui_conf.plot_options.labels = self.data.names.clone();
                     }
                     QCMEvent::BiasResult(bias) => {
@@ -785,7 +785,7 @@ impl eframe::App for MyApp {
                     }
                     QCMEvent::PhaseBaseDetectStart => {
                         self.gui_conf.plot_options.number_of_plots = 1;
-                        self.gui_conf.plot_options.first_data_x_axis = false;
+                        self.gui_conf.plot_options.x_axis = XAxisType::Point;
                         self.gui_conf.plot_options.labels = self.data.names.clone();
                     }
                     QCMEvent::PhaseBaseResult(phase) => {
@@ -793,22 +793,22 @@ impl eframe::App for MyApp {
                     }
                     QCMEvent::ShotIQStart(_) => {
                         self.gui_conf.plot_options.number_of_plots = 2;
-                        self.gui_conf.plot_options.first_data_x_axis = true;
+                        self.gui_conf.plot_options.x_axis = XAxisType::FirstData;
                         self.gui_conf.plot_options.labels = self.data.names.clone();
                     }
                     QCMEvent::RealtimeIQStart(_) => {
                         self.gui_conf.plot_options.number_of_plots = 1;
-                        self.gui_conf.plot_options.first_data_x_axis = true;
+                        self.gui_conf.plot_options.x_axis = XAxisType::FirstData;
                         self.gui_conf.plot_options.labels = self.data.names.clone();
                     }
                     QCMEvent::TrackStart(_) => {
                         self.gui_conf.plot_options.number_of_plots = 2;
-                        self.gui_conf.plot_options.first_data_x_axis = false;
+                        self.gui_conf.plot_options.x_axis = XAxisType::Time;
                         self.gui_conf.plot_options.labels = self.data.names.clone();
                     }
                     QCMEvent::MultiParamsStart(_) => {
                         self.gui_conf.plot_options.number_of_plots = 3;
-                        self.gui_conf.plot_options.first_data_x_axis = false;
+                        self.gui_conf.plot_options.x_axis = XAxisType::Time;
                         self.gui_conf.plot_options.labels = self.data.names.clone();
                     }
                     _ => (),
