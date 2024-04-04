@@ -7,6 +7,7 @@ use std::fs::{self, File};
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RecordOptions {
@@ -96,7 +97,7 @@ pub fn record_thread(
                     }
                 }
             }
-            let datas_vec = match record_data_rx.try_recv() {
+            let datas_vec = match record_data_rx.recv_timeout(Duration::from_millis(1)) {
                 Ok(datas) => {
                     let mut dv = vec![];
                     if record_options.insert_timestamp {
@@ -123,7 +124,7 @@ pub fn record_thread(
             }
         } else {
             wtr = None;
-            let _recv = record_data_rx.try_recv();
+            let _recv = record_data_rx.recv_timeout(Duration::from_millis(100));
         }
     }
 }

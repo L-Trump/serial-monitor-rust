@@ -292,7 +292,12 @@ impl MyApp {
                     .clicked()
                     || ui.input_mut(|i| i.consume_shortcut(&SAVE_FILE_SHORTCUT))
                 {
-                    if let Some(path) = rfd::FileDialog::new().save_file() {
+                    let cwd = std::env::current_dir().unwrap_or_default();
+                    if let Some(path) = rfd::FileDialog::new()
+                        .set_directory(cwd)
+                        .set_file_name("data.csv")
+                        .save_file()
+                    {
                         self.picked_path = path;
                         self.picked_path.set_extension("csv");
                         if let Err(e) = self.gui_event_tx.send(GuiEvent::SaveCSV(FileOptions {
@@ -384,7 +389,7 @@ impl MyApp {
             .id_source("console_scroll_area")
             .auto_shrink([false; 2])
             .stick_to_bottom(true)
-            .max_height(row_height * 15.5)
+            .max_height(ui.available_height())
             .show_rows(ui, row_height, num_rows, |ui, _row_range| {
                 let content: String = self
                     .console
@@ -415,22 +420,26 @@ impl MyApp {
         // need to subtract 12.0, this seems to be the height of the separator of two adjacent plots
         let plot_height = plots_height / (self.gui_conf.plot_options.number_of_plots as f32) - 12.0;
 
-        if let Ok(read_guard) = self.data_lock.read() {
-            self.data = read_guard.clone();
-        }
-
         let mut graphs: Vec<Vec<PlotPoint>> = vec![vec![]; self.data.dataset.len()];
         let window = self.data.dataset[0]
             .len()
             .saturating_sub(self.gui_conf.plot_options.plotting_range);
 
         for (i, time) in self.data.time[window..].iter().enumerate() {
-            let x = if self.gui_conf.plot_options.time_x_axis {
-                *time as f64 / 1000.0
-            } else {
-                (i + 1) as f64
+            let x = match self.gui_conf.plot_options.x_axis {
+                XAxisType::Time => *time as f64 / 1000.0,
+                XAxisType::Point => (i + 1) as f64,
+                XAxisType::FirstData => self.data.dataset[0].get(i + window).unwrap().clone(),
             };
-            for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
+            let initial_dataset = match self.gui_conf.plot_options.x_axis {
+                XAxisType::Time => 0,
+                XAxisType::Point => 0,
+                XAxisType::FirstData => 1,
+            };
+
+            for k in initial_dataset..graphs.len() {
+                let graph = &mut graphs[k];
+                let data = &self.data.dataset[k];
                 if self.data.time.len() == data.len() {
                     if let Some(y) = data.get(i + window) {
                         graph.push(PlotPoint { x, y: *y as f64 });
@@ -741,16 +750,24 @@ impl MyApp {
 
                         ui.add_space(linespread);
 
-                        if ui
-                            .selectable_label(
-                                self.gui_conf.plot_options.time_x_axis,
-                                "Time as X Axis",
-                            )
-                            .clicked()
-                        {
-                            self.gui_conf.plot_options.time_x_axis =
-                                !self.gui_conf.plot_options.time_x_axis;
-                        }
+                        ui.label("X Axis:");
+                        ui.horizontal(|ui| {
+                            ui.selectable_value(
+                                &mut self.gui_conf.plot_options.x_axis,
+                                XAxisType::Point,
+                                "Point",
+                            );
+                            ui.selectable_value(
+                                &mut self.gui_conf.plot_options.x_axis,
+                                XAxisType::Time,
+                                "Time",
+                            );
+                            ui.selectable_value(
+                                &mut self.gui_conf.plot_options.x_axis,
+                                XAxisType::FirstData,
+                                "First Data",
+                            );
+                        })
                     });
             });
             ui.separator();
@@ -881,7 +898,12 @@ impl MyApp {
             };
 
             if ui.button("Browse").clicked() {
-                if let Some(path) = rfd::FileDialog::new().save_file() {
+                let cwd = std::env::current_dir().unwrap_or_default();
+                if let Some(path) = rfd::FileDialog::new()
+                    .set_directory(cwd)
+                    .set_file_name("record.csv")
+                    .save_file()
+                {
                     self.gui_conf.record_options.record_path = path;
                     self.gui_conf
                         .record_options

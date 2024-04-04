@@ -8,13 +8,11 @@ extern crate serde;
 use std::cmp::max;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc, RwLock};
+use std::thread;
 use std::time::Duration;
-use std::{fs, thread};
 
-use eframe::egui::{vec2, FontData, ViewportBuilder, Visuals};
+use eframe::egui::{vec2, ViewportBuilder, Visuals};
 use eframe::{egui, icon_data};
-use font_kit::family_name::FamilyName;
-use font_kit::properties::Properties;
 use gui::{PlotOptions, RawTrafficOptions};
 use preferences::AppInfo;
 
@@ -131,6 +129,7 @@ fn main_thread(
                     {
                         // resetting dataset
                         data.time = vec![];
+                        data.absolute_time = vec![];
                         data.dataset = vec![vec![]; max(split_data.len(), 1)];
                         if data.names.len() != split_data.len() {
                             data.names = (0..max(split_data.len(), 1))
@@ -260,28 +259,8 @@ fn main() {
         options,
         Box::new(|_cc| {
             let mut fonts = egui::FontDefinitions::default();
-            let handle = font_kit::source::SystemSource::new()
-                .select_best_match(&[FamilyName::SansSerif], &Properties::new())
-                .unwrap();
-            let buf: Vec<u8> = match handle {
-                font_kit::handle::Handle::Memory { bytes, .. } => bytes.to_vec(),
-                font_kit::handle::Handle::Path { path, .. } => fs::read(path).unwrap(),
-            };
-
-            const FONT_SYSTEM_SANS_SERIF: &'static str = "System Sans Serif";
 
             egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
-            fonts
-                .font_data
-                .insert(FONT_SYSTEM_SANS_SERIF.to_owned(), FontData::from_owned(buf));
-
-            if let Some(vec) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
-                vec.push(FONT_SYSTEM_SANS_SERIF.to_owned());
-            }
-
-            if let Some(vec) = fonts.families.get_mut(&egui::FontFamily::Monospace) {
-                vec.push(FONT_SYSTEM_SANS_SERIF.to_owned());
-            }
 
             _cc.egui_ctx.set_fonts(fonts);
             _cc.egui_ctx.set_visuals(Visuals::light());

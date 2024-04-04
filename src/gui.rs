@@ -213,12 +213,19 @@ impl Default for RawTrafficOptions {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+enum XAxisType {
+    Time,
+    Point,
+    FirstData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PlotOptions {
     pub buffer_size: usize,
     plotting_range: usize,
     labels: Vec<String>,
     number_of_plots: usize,
-    time_x_axis: bool,
+    x_axis: XAxisType,
 }
 
 impl Default for PlotOptions {
@@ -228,7 +235,7 @@ impl Default for PlotOptions {
             plotting_range: usize::MAX,
             labels: vec!["Column 0".to_string()],
             number_of_plots: 1,
-            time_x_axis: false,
+            x_axis: XAxisType::Point,
         }
     }
 }
@@ -564,6 +571,10 @@ impl eframe::App for MyApp {
             self.connected_to_device = *read_guard;
         }
 
+        if let Ok(read_guard) = self.data_lock.read() {
+            self.data = read_guard.clone();
+        }
+
         self.draw_side_panel(ctx, frame);
         self.draw_central_panel(ctx);
         ctx.request_repaint();
@@ -582,7 +593,12 @@ impl eframe::App for MyApp {
         });
 
         if let (Some(screenshot), Some(plot_location)) = (screenshot, self.plot_location) {
-            if let Some(mut path) = rfd::FileDialog::new().save_file() {
+            let cwd = std::env::current_dir().unwrap_or_default();
+            if let Some(mut path) = rfd::FileDialog::new()
+                .set_directory(cwd)
+                .set_file_name("plot.png")
+                .save_file()
+            {
                 path.set_extension("png");
 
                 // for a full size application, we should put this in a different thread,
