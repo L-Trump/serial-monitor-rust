@@ -148,6 +148,7 @@ pub struct GuiSettingsContainer {
     pub record_options: RecordOptions,
     pub commands: Vec<Command>,
     pub impedance_options: ImpedanceOptions,
+    pub multiparams_options: MultiParamsOptions,
     pub qcm_dynamic_options: QCMDynamicOptions,
 }
 
@@ -171,6 +172,7 @@ impl Default for GuiSettingsContainer {
             }],
             impedance_options: ImpedanceOptions::default(),
             qcm_dynamic_options: QCMDynamicOptions::default(),
+            multiparams_options: MultiParamsOptions::default(),
         }
     }
 }
@@ -195,15 +197,17 @@ pub enum GuiTabs {
     Commands,
     PlotOptions,
     Record,
-    ImpedacneAnalysis,
-    QCMDynamicAnalysis,
+    ImpedanceTab,
+    QCMDynamicTab,
+    MultiParamsTab,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum GuiWindows {
     RawUART,
-    ImpedanceAnalysis,
+    Impedance,
     QCMDynamic,
+    MultiParams,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -273,6 +277,7 @@ pub struct ImpedanceOptions {
     base_frequency: String,
     holdtime: String,
     i_q_select: String,
+    s_c_select: String,
 }
 
 impl Default for ImpedanceOptions {
@@ -286,6 +291,26 @@ impl Default for ImpedanceOptions {
             base_frequency: "9999000.0".to_owned(),
             holdtime: "1.0".to_owned(),
             i_q_select: "i".to_string(),
+            s_c_select: "s".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MultiParamsOptions {
+    center_frequency: String,
+    frequency_span: String,
+    frequency_step: String,
+    holdtime: String,
+}
+
+impl Default for MultiParamsOptions {
+    fn default() -> Self {
+        Self {
+            center_frequency: "9998000.0".to_owned(),
+            frequency_span: "2000".to_owned(),
+            frequency_step: "1.0".to_owned(),
+            holdtime: "0.1".to_owned(),
         }
     }
 }
@@ -491,30 +516,45 @@ impl MyApp {
                         (self.plot_serial_display_ratio + resize_y / panel_height).clamp(0.1, 0.9);
 
                     ui.horizontal(|ui| {
-                        if self.active_window == GuiWindows::ImpedanceAnalysis
+                        if self.active_window == GuiWindows::Impedance
                             && ui
                                 .selectable_value(
                                     &mut self.active_tab,
-                                    Some(GuiTabs::ImpedacneAnalysis),
+                                    Some(GuiTabs::ImpedanceTab),
                                     "Impedance Options",
                                 )
                                 .double_clicked()
                         {
                             self.active_tab = None
                         };
+
                         if self.active_window == GuiWindows::QCMDynamic
                             && ui
                                 .selectable_value(
                                     &mut self.active_tab,
-                                    Some(GuiTabs::QCMDynamicAnalysis),
+                                    Some(GuiTabs::QCMDynamicTab),
                                     "QCM Dynamic Options",
                                 )
                                 .double_clicked()
                         {
                             self.active_tab = None
                         };
+
+                        if self.active_window == GuiWindows::MultiParams
+                            && ui
+                                .selectable_value(
+                                    &mut self.active_tab,
+                                    Some(GuiTabs::MultiParamsTab),
+                                    "MultiParams Options",
+                                )
+                                .double_clicked()
+                        {
+                            self.active_tab = None
+                        };
+
                         if (self.active_window == GuiWindows::RawUART
-                            || self.active_window == GuiWindows::QCMDynamic)
+                            || self.active_window == GuiWindows::QCMDynamic
+                            || self.active_window == GuiWindows::MultiParams)
                             && ui
                                 .selectable_value(
                                     &mut self.active_tab,
@@ -549,15 +589,9 @@ impl MyApp {
                             self.active_tab = None
                         };
 
-                        if (self.active_window == GuiWindows::RawUART
-                            || self.active_window == GuiWindows::QCMDynamic)
-                            && ui
-                                .selectable_value(
-                                    &mut self.active_tab,
-                                    Some(GuiTabs::Record),
-                                    "Record",
-                                )
-                                .double_clicked()
+                        if ui
+                            .selectable_value(&mut self.active_tab, Some(GuiTabs::Record), "Record")
+                            .double_clicked()
                         {
                             self.active_tab = None
                         };
@@ -587,26 +621,33 @@ impl MyApp {
                         Some(tab) => {
                             ui.separator();
                             ui.add_space(spacing);
-                            match tab {
-                                GuiTabs::RawTraffic => {
-                                    self.serial_raw_traffic_ui(ui);
-                                }
-                                GuiTabs::Commands => {
-                                    self.commands_gui(ui);
-                                }
-                                GuiTabs::PlotOptions => {
-                                    self.plot_options_ui(ui);
-                                }
-                                GuiTabs::Record => {
-                                    self.record_gui(ui);
-                                }
-                                GuiTabs::ImpedacneAnalysis => {
-                                    self.impedance_ui(ui);
-                                }
-                                GuiTabs::QCMDynamicAnalysis => {
-                                    self.qcmdynamic_ui(ui);
-                                }
-                            }
+                            egui::ScrollArea::horizontal()
+                                .id_source("tab_horizon_scroll")
+                                .max_width(ui.available_width())
+                                .auto_shrink([false; 2])
+                                .show(ui, |ui| match tab {
+                                    GuiTabs::RawTraffic => {
+                                        self.serial_raw_traffic_ui(ui);
+                                    }
+                                    GuiTabs::Commands => {
+                                        self.commands_gui(ui);
+                                    }
+                                    GuiTabs::PlotOptions => {
+                                        self.plot_options_ui(ui);
+                                    }
+                                    GuiTabs::Record => {
+                                        self.record_gui(ui);
+                                    }
+                                    GuiTabs::ImpedanceTab => {
+                                        self.impedance_ui(ui);
+                                    }
+                                    GuiTabs::QCMDynamicTab => {
+                                        self.qcmdynamic_ui(ui);
+                                    }
+                                    GuiTabs::MultiParamsTab => {
+                                        self.mulitparams_ui(ui);
+                                    }
+                                });
                         }
                         None => (),
                     };
@@ -667,14 +708,14 @@ impl MyApp {
                         if ui
                             .selectable_value(
                                 &mut self.active_window,
-                                GuiWindows::ImpedanceAnalysis,
+                                GuiWindows::Impedance,
                                 "Impedance Analyzer",
                             )
                             .clicked()
                         {
-                            self.active_tab = Some(GuiTabs::ImpedacneAnalysis);
+                            self.active_tab = Some(GuiTabs::ImpedanceTab);
                             self.gui_event_tx
-                                .send(GuiEvent::SetGuiWindow(GuiWindows::ImpedanceAnalysis))
+                                .send(GuiEvent::SetGuiWindow(GuiWindows::Impedance))
                                 .expect("failed to sync gui window")
                         };
                         if ui
@@ -685,9 +726,22 @@ impl MyApp {
                             )
                             .clicked()
                         {
-                            self.active_tab = Some(GuiTabs::QCMDynamicAnalysis);
+                            self.active_tab = Some(GuiTabs::QCMDynamicTab);
                             self.gui_event_tx
                                 .send(GuiEvent::SetGuiWindow(GuiWindows::QCMDynamic))
+                                .expect("failed to sync gui window")
+                        };
+                        if ui
+                            .selectable_value(
+                                &mut self.active_window,
+                                GuiWindows::MultiParams,
+                                "MultiParams Measuring",
+                            )
+                            .clicked()
+                        {
+                            self.active_tab = Some(GuiTabs::MultiParamsTab);
+                            self.gui_event_tx
+                                .send(GuiEvent::SetGuiWindow(GuiWindows::MultiParams))
                                 .expect("failed to sync gui window")
                         };
                     });

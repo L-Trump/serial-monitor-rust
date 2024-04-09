@@ -91,7 +91,7 @@ fn parse_qcm_event(cmd_strs: Vec<&str>) -> Option<QCMEvent> {
             cmd_strs.get(1)?.trim().parse().ok()?,
         )),
         "TRACKST" => Some(QCMEvent::TrackStart(cmd_strs.get(1)?.trim().parse().ok()?)),
-        "MULTIPARAST" => Some(QCMEvent::MultiParamsStart(
+        "MULPARAST" => Some(QCMEvent::MultiParamsStart(
             cmd_strs.get(1)?.trim().parse().ok()?,
         )),
         _ => None,
@@ -206,7 +206,7 @@ fn main_thread(
                                     ];
                                     failed_format_counter = 20;
                                 }
-                                _ => (),
+                                _ => {}
                             }
                         }
                         qcm_event_tx.send(event).expect("failed to send qcm event");

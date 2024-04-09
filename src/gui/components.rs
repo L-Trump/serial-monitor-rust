@@ -1184,6 +1184,30 @@ impl MyApp {
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
                     ui.add(
+                        TextEdit::singleline(&mut "S/C Select:".to_owned())
+                            .frame(false)
+                            .desired_width(100.0)
+                            .clip_text(false),
+                    );
+                    egui::ComboBox::from_id_source("s/c select")
+                        .selected_text(format!("{}", &self.gui_conf.impedance_options.s_c_select))
+                        .width(145.0)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut self.gui_conf.impedance_options.s_c_select,
+                                "s".to_owned(),
+                                "       s",
+                            );
+                            ui.selectable_value(
+                                &mut self.gui_conf.impedance_options.s_c_select,
+                                "c".to_owned(),
+                                "       c",
+                            );
+                        });
+                });
+                ui.add_space(10.0);
+                ui.horizontal(|ui| {
+                    ui.add(
                         TextEdit::singleline(&mut "I/Q Select:".to_owned())
                             .frame(false)
                             .desired_width(100.0)
@@ -1220,7 +1244,9 @@ impl MyApp {
                             + &self.gui_conf.impedance_options.frequency_step
                             + ","
                             + &self.gui_conf.impedance_options.holdtime
-                            + ",s\r\n\r\n";
+                            + ","
+                            + &self.gui_conf.impedance_options.s_c_select
+                            + "\r\n\r\n";
                         if let Err(err) = self.send_tx.send(send_cmd) {
                             print_to_console(
                                 &self.print_lock,
@@ -1245,7 +1271,9 @@ impl MyApp {
                             + &self.gui_conf.impedance_options.holdtime
                             + ","
                             + &self.gui_conf.impedance_options.i_q_select
-                            + ",s\r\n\r\n";
+                            + ","
+                            + &self.gui_conf.impedance_options.s_c_select
+                            + "\r\n\r\n";
                         if let Err(err) = self.send_tx.send(send_cmd) {
                             print_to_console(
                                 &self.print_lock,
@@ -1408,6 +1436,121 @@ impl MyApp {
                     }
                 }
             });
+        });
+    }
+
+    pub fn mulitparams_ui(&mut self, ui: &mut egui::Ui) {
+        ui.vertical(|ui| {
+            ui.heading("MultiParams settings");
+            ui.add_space(5.0);
+            ui.horizontal(|ui| {
+                ui.add(
+                    TextEdit::singleline(&mut "Center frequency:".to_owned())
+                        .frame(false)
+                        .desired_width(100.0)
+                        .clip_text(false),
+                );
+                ui.add(
+                    TextEdit::singleline(&mut self.gui_conf.multiparams_options.center_frequency)
+                        .code_editor()
+                        .lock_focus(false)
+                        .clip_text(true)
+                        .desired_width(135.0),
+                );
+                ui.add_space(10.0);
+                ui.add(
+                    TextEdit::singleline(&mut "Frequency span:".to_owned())
+                        .frame(false)
+                        .desired_width(100.0)
+                        .clip_text(false),
+                );
+                ui.add(
+                    TextEdit::singleline(&mut self.gui_conf.multiparams_options.frequency_span)
+                        .code_editor()
+                        .lock_focus(false)
+                        .clip_text(true)
+                        .desired_width(135.0),
+                );
+            });
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                ui.add(
+                    TextEdit::singleline(&mut "Frequency step:".to_owned())
+                        .frame(false)
+                        .desired_width(100.0)
+                        .clip_text(false),
+                );
+                ui.add(
+                    TextEdit::singleline(&mut self.gui_conf.multiparams_options.frequency_step)
+                        .code_editor()
+                        .lock_focus(false)
+                        .clip_text(true)
+                        .desired_width(135.0),
+                );
+                ui.add_space(10.0);
+                ui.add(
+                    TextEdit::singleline(&mut "Holdtime:".to_owned())
+                        .frame(false)
+                        .desired_width(100.0)
+                        .clip_text(false),
+                );
+                ui.add(
+                    TextEdit::singleline(&mut self.gui_conf.multiparams_options.holdtime)
+                        .code_editor()
+                        .lock_focus(false)
+                        .clip_text(true)
+                        .desired_width(135.0),
+                );
+            });
+            ui.add_space(10.0);
+            if ui
+                .add_sized([ui.available_width(), 20.0], Button::new("Start"))
+                .clicked()
+            {
+                let center_freq = self
+                    .gui_conf
+                    .multiparams_options
+                    .center_frequency
+                    .parse::<f64>()
+                    .unwrap_or(0.0);
+                let freq_span = self
+                    .gui_conf
+                    .multiparams_options
+                    .frequency_span
+                    .parse::<f64>()
+                    .unwrap_or(0.0);
+                let start_freq = format!("{:.2}", center_freq - freq_span / 2.0);
+                let stop_freq = format!("{:.2}", center_freq + freq_span / 2.0);
+                let send_cmd = "multi_params ".to_owned()
+                    + &start_freq
+                    + ","
+                    + &stop_freq
+                    + ","
+                    + &self.gui_conf.multiparams_options.frequency_step
+                    + ","
+                    + &self.gui_conf.multiparams_options.holdtime
+                    + "\r\n\r\n";
+                if let Err(err) = self.send_tx.send(send_cmd) {
+                    print_to_console(
+                        &self.print_lock,
+                        Print::Error(format!("send_tx thread send failed: {:?}", err)),
+                    );
+                }
+            }
+            ui.add_space(3.0);
+            if ui
+                .add_sized([ui.available_width(), 20.0], Button::new("Stop"))
+                .clicked()
+            {
+                self.active_module = GuiModules::QCMDynamicOptions;
+                let send_cmd = "stop\r\n\r\n".into();
+                if let Err(err) = self.send_tx.send(send_cmd) {
+                    print_to_console(
+                        &self.print_lock,
+                        Print::Error(format!("send_tx thread send failed: {:?}", err)),
+                    );
+                }
+            }
         });
     }
 }
